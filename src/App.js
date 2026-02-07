@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapPin, Calendar, Clock, Plus, Edit2, Trash2, X, Check, ChevronDown, Copy, Users, Music, Plane, Home, Star, Navigation, Sun, Moon, Cloud, CloudRain, Thermometer, Train, Footprints, Car, ExternalLink, Map } from "lucide-react";
+import { Calendar, Plus, Edit2, Trash2, X, Check, ChevronDown, Copy, Music, Plane, Home, Star, Navigation, Sun, Cloud, CloudRain, Thermometer, Train, Footprints, Car } from "lucide-react";
 
 const STORAGE_KEY = "belgium-trip-v3";
 const DAYS = [
