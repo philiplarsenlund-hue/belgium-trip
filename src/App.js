@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Calendar, Plus, Edit2, Trash2, X, Check, ChevronDown, Copy, Music, Plane, Home, Star, Navigation, Sun, Cloud, CloudRain, Thermometer, Train, Footprints, Car } from "lucide-react";
+import { Calendar, Plus, Edit2, Trash2, X, Check, ChevronDown, Copy, Music, Plane, Home, Star, Navigation, Sun, Cloud, CloudRain, Thermometer, Train, Footprints, Car, ExternalLink, Clock } from "lucide-react";
 
-const STORAGE_KEY = "belgium-trip-v3";
+const STORAGE_KEY = "belgium-trip-v4";
 const DAYS = [
   { id: "friday-24", label: "Fredag 24. april", date: "2026-04-24", subtitle: "Ankomstdag", emoji: "✈️", icon: Plane },
   { id: "saturday-25", label: "Lørdag 25. april", date: "2026-04-25", subtitle: "Utforsk Belgia", emoji: "🌟", icon: Star },
@@ -9,7 +9,13 @@ const DAYS = [
   { id: "monday-27", label: "Mandag 27. april", date: "2026-04-27", subtitle: "Hjemreise", emoji: "🏠", icon: Home },
 ];
 
+const FLIGHTS = {
+  "friday-24": { type: "departure", from: "Oslo (OSL)", to: "Brussel (BRU)", dept: "18:25", arr: "20:05", date: "24. april 2026" },
+  "monday-27": { type: "return", from: "Brussel (BRU)", to: "Oslo (OSL)", dept: "15:20", arr: "17:15", date: "27. april 2026" },
+};
+
 const HOME_ADDRESS = "Turnhoutsebaan 124, Antwerp, Vlaams Gewest 2140";
+const AIRBNB_URL = "https://www.airbnb.no/rooms/5379855?viralityEntryPoint=1&s=76";
 const TRIP_START = new Date("2026-04-24T00:00:00");
 
 const DEFAULT_ACTIVITIES = [
@@ -35,22 +41,14 @@ const WEATHER_DATA = [
 function useStorage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setData(JSON.parse(stored));
-    } catch {}
+    try { const s = localStorage.getItem(STORAGE_KEY); if (s) setData(JSON.parse(s)); } catch {}
     setLoading(false);
   }, []);
-
-  const save = useCallback((newData) => {
-    setData(newData);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-    } catch {}
+  const save = useCallback((d) => {
+    setData(d);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {}
   }, []);
-
   return { data, save, loading };
 }
 
@@ -60,7 +58,6 @@ function CountdownTimer({ isDark }) {
   const diff = TRIP_START - now;
   if (diff <= 0) return null;
   const d = Math.floor(diff / 864e5), h = Math.floor((diff % 864e5) / 36e5), m = Math.floor((diff % 36e5) / 6e4), s = Math.floor((diff % 6e4) / 1e3);
-
   const Unit = ({ val, label }) => (
     <div className="flex flex-col items-center">
       <div className={`text-2xl font-bold w-14 h-14 flex items-center justify-center rounded-2xl ${isDark ? "bg-white/10 text-white" : "bg-gray-900/5 text-gray-900"}`} style={{ fontVariantNumeric: "tabular-nums" }}>
@@ -73,6 +70,35 @@ function CountdownTimer({ isDark }) {
   return (
     <div className="flex items-start justify-center gap-2 mt-4">
       <Unit val={d} label="dager" /><Sep /><Unit val={h} label="timer" /><Sep /><Unit val={m} label="min" /><Sep /><Unit val={s} label="sek" />
+    </div>
+  );
+}
+
+function FlightCard({ flight, isDark }) {
+  const isDepart = flight.type === "departure";
+  return (
+    <div className={`rounded-xl p-3.5 mb-2 ${isDark ? "bg-blue-500/10 border border-blue-500/20" : "bg-blue-50 border border-blue-100"}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <Plane className={`w-4 h-4 ${isDepart ? "" : "rotate-180"} ${isDark ? "text-blue-400" : "text-blue-500"}`} />
+        <span className={`text-xs font-bold uppercase tracking-wide ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+          {isDepart ? "Utreise" : "Hjemreise"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="text-center">
+          <div className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{flight.dept}</div>
+          <div className={`text-xs font-medium ${isDark ? "text-white/40" : "text-gray-400"}`}>{flight.from}</div>
+        </div>
+        <div className="flex-1 flex items-center justify-center px-3">
+          <div className={`flex-1 h-px ${isDark ? "bg-white/10" : "bg-gray-200"}`} />
+          <div className={`mx-2 text-xs ${isDark ? "text-white/30" : "text-gray-300"}`}>✈</div>
+          <div className={`flex-1 h-px ${isDark ? "bg-white/10" : "bg-gray-200"}`} />
+        </div>
+        <div className="text-center">
+          <div className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{flight.arr}</div>
+          <div className={`text-xs font-medium ${isDark ? "text-white/40" : "text-gray-400"}`}>{flight.to}</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -124,22 +150,33 @@ function TransportBar({ activity, isDark }) {
   const dest = activity.location || activity.name;
   const enc = encodeURIComponent(dest);
   const homeEnc = encodeURIComponent(HOME_ADDRESS);
-  const modes = [
-    { icon: <Footprints className="w-3.5 h-3.5" />, label: "Gå", mode: "walking" },
-    { icon: <Train className="w-3.5 h-3.5" />, label: "Kollektiv", mode: "transit" },
-    { icon: <Car className="w-3.5 h-3.5" />, label: "Taxi", mode: "driving" },
-  ];
+
+  const openUber = () => {
+    const lat = "";
+    const dAddr = encodeURIComponent(dest);
+    window.open(`https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=${dAddr}`, "_blank");
+  };
+
   return (
     <div className="flex gap-1.5 mt-2.5 flex-wrap">
-      {modes.map((m) => (
-        <button
-          key={m.mode}
-          onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&origin=${homeEnc}&destination=${enc}&travelmode=${m.mode}`, "_blank")}
-          className={`text-xs font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all active:scale-95 ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70" : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"}`}
-        >
-          {m.icon}{m.label}
-        </button>
-      ))}
+      <button
+        onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&origin=${homeEnc}&destination=${enc}&travelmode=walking`, "_blank")}
+        className={`text-xs font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all active:scale-95 ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70" : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"}`}
+      >
+        <Footprints className="w-3.5 h-3.5" />Gå
+      </button>
+      <button
+        onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&origin=${homeEnc}&destination=${enc}&travelmode=transit`, "_blank")}
+        className={`text-xs font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all active:scale-95 ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70" : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"}`}
+      >
+        <Train className="w-3.5 h-3.5" />Kollektiv
+      </button>
+      <button
+        onClick={openUber}
+        className={`text-xs font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all active:scale-95 ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70" : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"}`}
+      >
+        <Car className="w-3.5 h-3.5" />Uber
+      </button>
     </div>
   );
 }
@@ -190,10 +227,11 @@ function ActivityCard({ activity, isDark, onEdit, onDelete }) {
   );
 }
 
-function DaySection({ day, activities, isDark, onEdit, onDelete, defaultExpanded }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+function DaySection({ day, activities, isDark, onEdit, onDelete }) {
+  const [expanded, setExpanded] = useState(false);
   const sorted = [...activities].sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
   const weather = WEATHER_DATA.find((w) => w.id === day.id);
+  const flight = FLIGHTS[day.id];
   return (
     <div className={`rounded-2xl overflow-hidden transition-all duration-300 ${isDark ? "bg-white/[0.03] border border-white/10" : "bg-white border border-gray-200/80 shadow-sm"}`}>
       <button onClick={() => setExpanded(!expanded)} className={`w-full px-4 py-4 flex items-center gap-3 transition-all active:scale-[0.995] ${isDark ? "hover:bg-white/5" : "hover:bg-gray-50"}`}>
@@ -204,13 +242,14 @@ function DaySection({ day, activities, isDark, onEdit, onDelete, defaultExpanded
         </div>
         <div className="flex items-center gap-2">
           {weather && <WeatherBadge weather={weather} isDark={isDark} />}
-          {sorted.length > 0 && <span className="bg-blue-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">{sorted.length}</span>}
+          {(sorted.length > 0 || flight) && <span className="bg-blue-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">{sorted.length + (flight ? 1 : 0)}</span>}
           <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${expanded ? "rotate-180" : ""} ${isDark ? "text-white/30" : "text-gray-300"}`} />
         </div>
       </button>
       {expanded && (
         <div className={`px-4 pb-4 space-y-2 pt-3 ${isDark ? "border-t border-white/5" : "border-t border-gray-100"}`}>
-          {sorted.length === 0 ? (
+          {flight && <FlightCard flight={flight} isDark={isDark} />}
+          {sorted.length === 0 && !flight ? (
             <div className="text-center py-8">
               <div className="text-3xl mb-2 opacity-40">📝</div>
               <div className={`text-sm font-medium ${isDark ? "text-white/30" : "text-gray-400"}`}>Ingen planer ennå</div>
@@ -266,7 +305,17 @@ function ActivityForm({ activity, onSave, onCancel, isDark }) {
             ))}
           </div>
         </div>
-        <div><label className={labelCls}>Tidspunkt</label><input type="time" value={form.time} onChange={(e) => set("time", e.target.value)} className={inputCls} /></div>
+        <div>
+          <label className={labelCls}>Tidspunkt</label>
+          <div className="flex gap-2">
+            <input type="time" value={form.time} onChange={(e) => set("time", e.target.value)} className={`flex-1 ${inputCls}`} />
+            {form.time && (
+              <button onClick={() => set("time", "")} className={`px-3 rounded-xl transition-all active:scale-95 ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
         <div><label className={labelCls}>Navn *</label><input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Hva skal dere gjøre?" className={inputCls} /></div>
         <div><label className={labelCls}>Beskrivelse</label><input value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Valgfri beskrivelse" className={inputCls} /></div>
         <div><label className={labelCls}>Sted / Google Maps-lenke</label><input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="Adresse eller lim inn lenke" className={inputCls} /></div>
@@ -333,24 +382,46 @@ function App() {
       </div>
 
       <div className="max-w-lg mx-auto px-5 py-5 space-y-4 pb-28">
-        <button onClick={copyAddr} className={`w-full rounded-2xl p-4 text-left transition-all duration-300 active:scale-[0.98] ${isDark ? "bg-white/[0.03] border border-white/10" : "bg-white border border-gray-200/80 shadow-sm"}`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? "bg-blue-500/20" : "bg-blue-50"}`}>
-              <Home className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-500"}`} />
+        {/* Home address card */}
+        <div className={`rounded-2xl overflow-hidden transition-all duration-300 ${isDark ? "bg-white/[0.03] border border-white/10" : "bg-white border border-gray-200/80 shadow-sm"}`}>
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? "bg-blue-500/20" : "bg-blue-50"}`}>
+                <Home className={`w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-500"}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className={`text-xs font-semibold mb-0.5 ${isDark ? "text-white/40" : "text-gray-400"}`}>🏡 Vi bor her</div>
+                <div className={`text-sm font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>{HOME_ADDRESS}</div>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className={`text-xs font-semibold mb-0.5 ${isDark ? "text-white/40" : "text-gray-400"}`}>🏡 Vi bor her</div>
-              <div className={`text-sm font-medium truncate ${isDark ? "text-white" : "text-gray-900"}`}>{HOME_ADDRESS}</div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(HOME_ADDRESS)}`, "_blank")}
+                className={`flex-1 text-xs font-semibold flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition-all active:scale-95 ${isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}
+              >
+                <Navigation className="w-3.5 h-3.5" />Kart
+              </button>
+              <button
+                onClick={() => window.open(AIRBNB_URL, "_blank")}
+                className={`flex-1 text-xs font-semibold flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition-all active:scale-95 ${isDark ? "bg-pink-500/20 text-pink-400 hover:bg-pink-500/30" : "bg-pink-50 text-pink-600 hover:bg-pink-100"}`}
+              >
+                <ExternalLink className="w-3.5 h-3.5" />Airbnb
+              </button>
+              <button
+                onClick={copyAddr}
+                className={`flex-1 text-xs font-semibold flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl transition-all active:scale-95 ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+              >
+                <Copy className="w-3.5 h-3.5" />Kopier
+              </button>
             </div>
-            <Copy className={`w-4 h-4 flex-shrink-0 ${isDark ? "text-white/20" : "text-gray-300"}`} />
           </div>
-        </button>
+        </div>
 
         <WeatherCard isDark={isDark} />
 
         {DAYS.map((day) => (
           <DaySection key={day.id} day={day} activities={activities.filter((a) => a.day === day.id)} isDark={isDark}
-            onEdit={(a) => setEditing(a)} onDelete={deleteActivity} defaultExpanded={day.id === "friday-24"} />
+            onEdit={(a) => setEditing(a)} onDelete={deleteActivity} />
         ))}
 
         <div className={`rounded-2xl p-4 transition-all ${isDark ? "bg-white/[0.03] border border-white/10" : "bg-white border border-gray-200/80 shadow-sm"}`}>
@@ -361,11 +432,14 @@ function App() {
         </div>
       </div>
 
+      {/* Dark mode toggle */}
       <div className="fixed bottom-6 left-6 z-40">
         <button onClick={() => setIsDark(!isDark)} className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center transition-all active:scale-90 ${isDark ? "bg-zinc-800 border border-white/10" : "bg-gray-100 border border-gray-300"}`}>
           {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <span className="text-sm">🌙</span>}
         </button>
       </div>
+
+      {/* FAB */}
       <div className="fixed bottom-6 right-6 z-40">
         <button onClick={() => setShowForm(true)} className="w-14 h-14 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-xl shadow-blue-500/30 flex items-center justify-center transition-all active:scale-90">
           <Plus className="w-6 h-6" strokeWidth={2.5} />
