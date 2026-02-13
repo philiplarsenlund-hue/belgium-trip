@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Calendar, Plus, Edit2, Trash2, X, Check, ChevronDown, Copy, Music, Plane, Home, Star, Navigation, Sun, Cloud, CloudRain, Thermometer, Train, Footprints, Car, ExternalLink, Clock } from "lucide-react";
+import { Calendar, Plus, Edit2, Trash2, X, Check, ChevronDown, Copy, Music, Plane, Home, Star, Navigation, Sun, Cloud, CloudRain, Thermometer, Train, Footprints, Car, ExternalLink } from "lucide-react";
 
 const STORAGE_KEY = "belgium-trip-v4";
 const DAYS = [
@@ -152,7 +152,6 @@ function TransportBar({ activity, isDark }) {
   const homeEnc = encodeURIComponent(HOME_ADDRESS);
 
   const openUber = () => {
-    const lat = "";
     const dAddr = encodeURIComponent(dest);
     window.open(`https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=${dAddr}`, "_blank");
   };
